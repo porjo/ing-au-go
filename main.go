@@ -4,24 +4,32 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"flag"
-	"fmt"
 	"image"
 	"image/png"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/network"
-	"github.com/chromedp/chromedp"
 	dp "github.com/chromedp/chromedp"
 	"github.com/vitali-fedulov/images3"
 )
 
+type TokenResponse struct {
+	Token string
+}
+
+var clientNumber, accessPin *string
+
+const loginURL string = "https://www.ing.com.au/securebanking/"
+
 func main() {
 	wsURL := flag.String("ws-url", "ws://localhost:9222", "WebSsocket URL")
-	clientNumber := flag.String("clientNumber", "", "Client number")
-	accessPin := flag.String("accessPin", "", "Access pin")
+	clientNumber = flag.String("clientNumber", "", "Client number")
+	accessPin = flag.String("accessPin", "", "Access pin")
 	flag.Parse()
 	if *clientNumber == "" {
 		log.Fatal("clientNumber is required")
@@ -37,7 +45,8 @@ func main() {
 	defer cancel()
 
 	// create context
-	ctx, cancel := dp.NewContext(allocatorCtx)
+	ctx, cancel := dp.NewContext(allocatorCtx) //dp.WithDebugf(log.Printf),
+
 	defer cancel()
 
 	// create a timeout as a safety net to prevent any infinite wait loops
@@ -45,64 +54,95 @@ func main() {
 	defer cancel()
 
 	var imgNodes []*cdp.Node
-	var randomKeys []string
+
+	tokenResponseChan := make(chan *network.EventResponseReceived)
+	clickTasks := make(dp.Tasks, 0)
 
 	dp.ListenTarget(ctx, func(ev interface{}) {
 		switch ev := ev.(type) {
 		case *network.EventResponseReceived:
-			log.Printf("EventResponseReceived %s %s\n", ev.Type, ev.Response.URL)
-			if ev.Type == "Script" {
-				log.Printf("EventResponseReceived, Script\n")
-				resp := ev.Response
-
-				if resp.URL == "https://www.ing.com.au/STSServiceB2C/V1/SecurityTokenServiceProxy.svc/issue" {
-					log.Printf("EventResponseReceived, Script, token\n")
-					c := chromedp.FromContext(ctx)
-					body, err := network.GetResponseBody(ev.RequestID).Do(cdp.WithExecutor(ctx, c.Target))
-					if err != nil {
-						fmt.Println(err)
-					}
-					fmt.Printf("token body %s\n", body)
-				}
+			if ev.Response.URL == "https://www.ing.com.au/STSServiceB2C/V1/SecurityTokenServiceProxy.svc/issue" {
+				log.Printf("EventResponseReceived, token\n")
+				tokenResponseChan <- ev
 			}
 		}
 	})
 
-	// run task list
+	log.Printf("Fetching page: %s\n", loginURL)
 	if err := dp.Run(ctx,
-		dp.Navigate("https://www.ing.com.au/securebanking/"),
-		dp.WaitVisible("#loginInput"),
-		dp.SendKeys("#cifField", *clientNumber),
-		dp.Nodes(".pin > img", &imgNodes),
+		dp.Navigate(loginURL),
+		dp.WaitVisible("#loginInput", dp.ByID),
+		dp.SendKeys("#cifField", *clientNumber, dp.ByID),
+		dp.Nodes(".pin > img", &imgNodes, dp.ByQueryAll),
 		dp.ActionFunc(func(ctx context.Context) error {
-			randomKeys = make([]string, 0)
-			for _, node := range imgNodes {
-				log.Printf("iterate images...\n")
-				src, ok := node.Attribute("src")
-				if !ok {
-					continue
-				}
-				randomKeys = append(randomKeys, src[22:])
-				keymap, err := generateKeymap(randomKeys)
-				if err != nil {
-					return err
-				}
-				for _, s := range *accessPin {
-					clickIdx, ok := keymap[int(s)]
-					if ok {
-						log.Printf("click button idx %d\n", clickIdx)
-						dp.Click(".uia-pin-" + string(clickIdx)).Do(ctx)
-					}
-				}
-
+			var err error
+			log.Println("Generating pin clicks")
+			clickTasks, err = generatePinClicks(ctx, imgNodes)
+			if err != nil {
+				return err
 			}
-			log.Printf("finished action\n")
 			return nil
 		}),
-		dp.Click("#login-btn"),
 	); err != nil {
 		log.Fatalf("Chrome actions failed: %v", err)
 	}
+
+	// clickTasks needs to be handled in separate Run() clause, why?
+	if err := dp.Run(ctx,
+		clickTasks,
+		dp.ActionFunc(func(ctx context.Context) error {
+			log.Println("Performing login")
+			return nil
+		}),
+		dp.Click("#login-btn", dp.ByID),
+	); err != nil {
+		log.Fatalf("Chrome actions failed: %v", err)
+	}
+
+	log.Printf("Wait for token response\n")
+	ev := <-tokenResponseChan
+	if err := dp.Run(ctx,
+		dp.ActionFunc(func(ctx context.Context) error {
+			body, err := network.GetResponseBody(ev.RequestID).Do(ctx)
+			if err != nil {
+				return err
+			}
+			tr := TokenResponse{}
+			err = json.Unmarshal(body, &tr)
+			if err != nil {
+				return err
+			}
+			log.Printf("token: %s\n", tr.Token)
+			return nil
+		}),
+	); err != nil {
+		log.Fatalf("Chrome actions failed: %v", err)
+	}
+
+}
+
+func generatePinClicks(ctx context.Context, imgNodes []*cdp.Node) (dp.Tasks, error) {
+	clickTasks := make(dp.Tasks, 0)
+	randomKeys := make([]string, 0)
+	for _, node := range imgNodes {
+		src, ok := node.Attribute("src")
+		if !ok {
+			continue
+		}
+		randomKeys = append(randomKeys, src[22:])
+	}
+	keymap, err := generateKeymap(randomKeys)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range *accessPin {
+		digit, _ := strconv.Atoi(string(r))
+		clickIdx, ok := keymap[digit]
+		if ok {
+			clickTasks = append(clickTasks, dp.Click(".uia-pin-"+strconv.Itoa(clickIdx), dp.ByQuery))
+		}
+	}
+	return clickTasks, nil
 }
 
 func generateKeymap(randomKeys []string) (map[int]int, error) {
@@ -127,7 +167,8 @@ func generateKeymap(randomKeys []string) (map[int]int, error) {
 			icon1 := images3.Icon(randImg, "")
 			icon2 := images3.Icon(keyImg, "")
 
-			if images3.Similar(icon1, icon2) {
+			m1, m2, m3 := images3.EucMetric(icon1, icon2)
+			if m1 < 20.0 && m2 < 20.0 && m3 < 20.0 {
 				keypadMap[keyIdx] = randIdx
 				break
 			}
@@ -135,18 +176,6 @@ func generateKeymap(randomKeys []string) (map[int]int, error) {
 	}
 	return keypadMap, nil
 }
-
-/*
-  return randomisedKeys.map((base64str, i) => {
-    const img = PNG.sync.read(Buffer.from(base64str, 'base64'))
-    for (let j = 0; j < keypadImages.length; j++) {
-      if (pixelmatch(img.data, keypadImages[j].data, null, 180, 110) < 10) {
-        return String(j)
-      }
-    }
-    throw new Error('Could not identify keypad image (index: ' + i + ')')
-  })
-*/
 
 func getKeypadImages() ([]image.Image, error) {
 	b64 := []string{
@@ -177,5 +206,4 @@ func getKeypadImages() ([]image.Image, error) {
 		images = append(images, i)
 	}
 	return images, nil
-
 }
