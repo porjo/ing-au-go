@@ -1,11 +1,11 @@
-package main
+package ingaugo
 
 import (
 	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"flag"
+	"fmt"
 	"image"
 	"image/png"
 	"log"
@@ -18,39 +18,19 @@ import (
 	"github.com/vitali-fedulov/images3"
 )
 
-type TokenResponse struct {
-	Token string
-}
-
-var clientNumber, accessPin *string
-
-const loginURL string = "https://www.ing.com.au/securebanking/"
-
-func main() {
-	wsURL := flag.String("ws-url", "ws://localhost:9222", "WebSsocket URL")
-	clientNumber = flag.String("clientNumber", "", "Client number")
-	accessPin = flag.String("accessPin", "", "Access pin")
-	flag.Parse()
-	if *clientNumber == "" {
-		log.Fatal("clientNumber is required")
-		flag.PrintDefaults()
+func (bank *Bank) Login(clientNumber, accessPin string) (token string, err error) {
+	if clientNumber == "" {
+		return "", fmt.Errorf("clientNumber is required")
 	}
-	if *accessPin == "" {
-		log.Fatal("accessPin is required")
-		flag.PrintDefaults()
+	if accessPin == "" {
+		return "", fmt.Errorf("accessPin is required")
 	}
 
-	// create allocator context for use with creating a browser context later
-	allocatorCtx, cancel := dp.NewRemoteAllocator(context.Background(), *wsURL)
-	defer cancel()
-
-	// create context
-	ctx, cancel := dp.NewContext(allocatorCtx) //dp.WithDebugf(log.Printf),
-
-	defer cancel()
+	bank.clientNumber = clientNumber
+	bank.accessPin = accessPin
 
 	// create a timeout as a safety net to prevent any infinite wait loops
-	ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
+	ctx, cancel := context.WithTimeout(bank.context, 60*time.Second)
 	defer cancel()
 
 	var imgNodes []*cdp.Node
@@ -72,12 +52,12 @@ func main() {
 	if err := dp.Run(ctx,
 		dp.Navigate(loginURL),
 		dp.WaitVisible("#loginInput", dp.ByID),
-		dp.SendKeys("#cifField", *clientNumber, dp.ByID),
+		dp.SendKeys("#cifField", bank.clientNumber, dp.ByID),
 		dp.Nodes(".pin > img", &imgNodes, dp.ByQueryAll),
 		dp.ActionFunc(func(ctx context.Context) error {
 			var err error
 			log.Println("Generating pin clicks")
-			clickTasks, err = generatePinClicks(ctx, imgNodes)
+			clickTasks, err = bank.generatePinClicks(ctx, imgNodes)
 			if err != nil {
 				return err
 			}
@@ -107,21 +87,22 @@ func main() {
 			if err != nil {
 				return err
 			}
-			tr := TokenResponse{}
+			tr := tokenResponse{}
 			err = json.Unmarshal(body, &tr)
 			if err != nil {
 				return err
 			}
-			log.Printf("token: %s\n", tr.Token)
+			token = tr.Token
 			return nil
 		}),
 	); err != nil {
 		log.Fatalf("Chrome actions failed: %v", err)
 	}
 
+	return
 }
 
-func generatePinClicks(ctx context.Context, imgNodes []*cdp.Node) (dp.Tasks, error) {
+func (bank *Bank) generatePinClicks(ctx context.Context, imgNodes []*cdp.Node) (dp.Tasks, error) {
 	clickTasks := make(dp.Tasks, 0)
 	randomKeys := make([]string, 0)
 	for _, node := range imgNodes {
@@ -135,7 +116,7 @@ func generatePinClicks(ctx context.Context, imgNodes []*cdp.Node) (dp.Tasks, err
 	if err != nil {
 		return nil, err
 	}
-	for _, r := range *accessPin {
+	for _, r := range bank.accessPin {
 		digit, _ := strconv.Atoi(string(r))
 		clickIdx, ok := keymap[digit]
 		if ok {

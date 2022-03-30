@@ -1,4 +1,4 @@
-module ing-au-go
+module github.com/porjo/ingaugo
 
 go 1.16
 
