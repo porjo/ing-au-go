@@ -1,3 +1,4 @@
+// Package ingaugo provides a screenscraping interface to ING Australia Bank
 package ingaugo
 
 import (
@@ -20,10 +21,12 @@ type tokenResponse struct {
 
 const loginURL string = "https://www.ing.com.au/securebanking/"
 
-func NewBank(url string) Bank {
+// NewBank takes an optional url which refers to a browser's websocket address.
+// If no url is supplied, it will attempt to launch a local browser instance.
+func NewBank(websocketUrl string) Bank {
 	b := Bank{}
-	if url != "" {
-		b.context, b.cancel = dp.NewRemoteAllocator(context.Background(), url)
+	if websocketUrl != "" {
+		b.context, b.cancel = dp.NewRemoteAllocator(context.Background(), websocketUrl)
 
 	}
 	if b.context == nil {

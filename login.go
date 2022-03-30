@@ -18,6 +18,7 @@ import (
 	"github.com/vitali-fedulov/images3"
 )
 
+// Login takes an ING client number and access pin and returns an authentication token
 func (bank *Bank) Login(clientNumber, accessPin string) (token string, err error) {
 	if clientNumber == "" {
 		return "", fmt.Errorf("clientNumber is required")
