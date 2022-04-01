@@ -15,6 +15,7 @@ func main() {
 	wsURL := flag.String("ws-url", "ws://localhost:9222", "WebSsocket URL")
 	clientNumber := flag.String("clientNumber", "", "Client number")
 	accessPin := flag.String("accessPin", "", "Access pin")
+	accountNumber := flag.String("accountNumber", "", "Account number")
 	flag.Parse()
 	if *clientNumber == "" {
 		fmt.Println("clientNumber is required")
@@ -39,4 +40,14 @@ func main() {
 	}
 
 	log.Printf("token: %s\n", token)
+
+	if *accountNumber != "" {
+		log.Printf("fetching transactions\n")
+		trans, err := bank.FetchLast30Days(*accountNumber, token)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		log.Printf("transactions\n%s\n", trans)
+	}
 }
