@@ -1,18 +1,8 @@
 // Package ingaugo provides a screenscraping interface to ING Australia Bank
 package ingaugo
 
-import (
-	"context"
-
-	dp "github.com/chromedp/chromedp"
-)
-
 type Bank struct {
-	context context.Context
-	cancel  context.CancelFunc
-
-	clientNumber string
-	accessPin    string
+	wsURL string
 }
 
 type tokenResponse struct {
@@ -21,17 +11,14 @@ type tokenResponse struct {
 
 const loginURL string = "https://www.ing.com.au/securebanking/"
 
-// NewBank takes an optional url which refers to a browser's websocket address.
-// If no url is supplied, it will attempt to launch a local browser instance.
-func NewBank(websocketUrl string) Bank {
-	b := Bank{}
-	if websocketUrl != "" {
-		b.context, b.cancel = dp.NewRemoteAllocator(context.Background(), websocketUrl)
+// NewBank is used to initialize and return a Bank that works by launching a
+// a local browser instance. It depends on 'google-chrome' executable being in $PATH
+func NewBank() Bank {
+	return Bank{}
+}
 
-	}
-	if b.context == nil {
-		b.context = context.Background()
-	}
-	b.context, b.cancel = dp.NewContext(b.context)
-	return b
+// NewBankWithWS initalises and returns a Bank that will attempt to
+// connect to a browser via websocket URL
+func NewBankWithWS(websocketURL string) Bank {
+	return Bank{wsURL: websocketURL}
 }

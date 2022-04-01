@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/porjo/ingaugo"
 )
@@ -25,9 +27,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	bank := ingaugo.NewBank(*wsURL)
+	// create a timeout as a safety net to prevent any infinite wait loops
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 
-	token, err := bank.Login(*clientNumber, *accessPin)
+	bank := ingaugo.NewBankWithWS(*wsURL)
+
+	token, err := bank.Login(ctx, *clientNumber, *accessPin)
 	if err != nil {
 		log.Fatal(err)
 	}

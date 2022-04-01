@@ -10,7 +10,6 @@ import (
 	"image/png"
 	"log"
 	"strconv"
-	"time"
 
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/network"
@@ -18,8 +17,8 @@ import (
 	"github.com/vitali-fedulov/images3"
 )
 
-// Login takes an ING client number and access pin and returns an authentication token
-func (bank *Bank) Login(clientNumber, accessPin string) (token string, err error) {
+// Login takes a context, ING client number and access pin and returns an authentication token
+func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (token string, err error) {
 	if clientNumber == "" {
 		return "", fmt.Errorf("clientNumber is required")
 	}
@@ -27,11 +26,12 @@ func (bank *Bank) Login(clientNumber, accessPin string) (token string, err error
 		return "", fmt.Errorf("accessPin is required")
 	}
 
-	bank.clientNumber = clientNumber
-	bank.accessPin = accessPin
-
-	// create a timeout as a safety net to prevent any infinite wait loops
-	ctx, cancel := context.WithTimeout(bank.context, 60*time.Second)
+	var cancel context.CancelFunc
+	if bank.wsURL != "" {
+		ctx, cancel = dp.NewRemoteAllocator(ctx, bank.wsURL)
+		defer cancel()
+	}
+	ctx, cancel = dp.NewContext(ctx)
 	defer cancel()
 
 	var imgNodes []*cdp.Node
@@ -53,12 +53,12 @@ func (bank *Bank) Login(clientNumber, accessPin string) (token string, err error
 	if err := dp.Run(ctx,
 		dp.Navigate(loginURL),
 		dp.WaitVisible("#loginInput", dp.ByID),
-		dp.SendKeys("#cifField", bank.clientNumber, dp.ByID),
+		dp.SendKeys("#cifField", clientNumber, dp.ByID),
 		dp.Nodes(".pin > img", &imgNodes, dp.ByQueryAll),
 		dp.ActionFunc(func(ctx context.Context) error {
 			var err error
 			log.Println("Generating pin clicks")
-			clickTasks, err = bank.generatePinClicks(ctx, imgNodes)
+			clickTasks, err = bank.generatePinClicks(ctx, accessPin, imgNodes)
 			if err != nil {
 				return err
 			}
@@ -103,7 +103,7 @@ func (bank *Bank) Login(clientNumber, accessPin string) (token string, err error
 	return
 }
 
-func (bank *Bank) generatePinClicks(ctx context.Context, imgNodes []*cdp.Node) (dp.Tasks, error) {
+func (bank *Bank) generatePinClicks(ctx context.Context, accessPin string, imgNodes []*cdp.Node) (dp.Tasks, error) {
 	clickTasks := make(dp.Tasks, 0)
 	randomKeys := make([]string, 0)
 	for _, node := range imgNodes {
@@ -117,7 +117,7 @@ func (bank *Bank) generatePinClicks(ctx context.Context, imgNodes []*cdp.Node) (
 	if err != nil {
 		return nil, err
 	}
-	for _, r := range bank.accessPin {
+	for _, r := range accessPin {
 		digit, _ := strconv.Atoi(string(r))
 		clickIdx, ok := keymap[digit]
 		if ok {
