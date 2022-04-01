@@ -43,7 +43,7 @@ func main() {
 
 	if *accountNumber != "" {
 		log.Printf("fetching transactions\n")
-		trans, err := bank.FetchLast30Days(*accountNumber, token)
+		trans, err := bank.GetTransactionsDays(30, *accountNumber, token)
 		if err != nil {
 			log.Fatal(err)
 		}

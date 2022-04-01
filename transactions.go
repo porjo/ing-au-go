@@ -3,9 +3,8 @@ package ingaugo
 import (
 	"io"
 	"net/http"
+	"net/url"
 	"time"
-
-	"github.com/sonh/qs"
 )
 
 const timeLayout = "2006-01-02T15:04:05-0700"
@@ -20,24 +19,19 @@ type transactionRequest struct {
 	IsSpecific      bool
 }
 
-func (bank *Bank) FetchLast30Days(accountNumber, authToken string) (csv []byte, err error) {
-	data := transactionRequest{
-		AuthToken:       authToken,
-		AccountNumber:   accountNumber,
-		Format:          "csv",
-		FilterStartDate: time.Now().AddDate(0, 0, -30).Format(timeLayout),
-		FilterEndDate:   time.Now().AddDate(0, 0, 1).Format(timeLayout),
-		IsSpecific:      false,
-	}
-
-	encoder := qs.NewEncoder()
-	vals, err := encoder.Values(data)
-	if err != nil {
-		return nil, err
-	}
+// GetTransactionsDays fetches transactions for the last x days. It takes an account number and auth token
+// and returns CSV data
+func (bank *Bank) GetTransactionsDays(days int, accountNumber, authToken string) (csv []byte, err error) {
+	data := url.Values{}
+	data.Set("X-AuthToken", authToken)
+	data.Set("AccountNumber", accountNumber)
+	data.Set("Format", "csv")
+	data.Set("FilterStartDate", time.Now().AddDate(0, 0, -days).Format(timeLayout))
+	data.Set("FilterEndDate", time.Now().AddDate(0, 0, 1).Format(timeLayout))
+	data.Set("IsSpecific", "false")
 
 	var c http.Client
-	resp, err := c.PostForm(exportTransactionsURL, vals)
+	resp, err := c.PostForm(exportTransactionsURL, data)
 	if err != nil {
 		return nil, err
 	}

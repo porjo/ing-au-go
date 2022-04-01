@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"image"
 	"image/png"
-	"log"
 	"strconv"
 
 	"github.com/chromedp/cdproto/cdp"
@@ -43,13 +42,12 @@ func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (to
 		switch ev := ev.(type) {
 		case *network.EventResponseReceived:
 			if ev.Response.URL == "https://www.ing.com.au/STSServiceB2C/V1/SecurityTokenServiceProxy.svc/issue" {
-				log.Printf("EventResponseReceived, token\n")
 				tokenResponseChan <- ev
 			}
 		}
 	})
 
-	log.Printf("Fetching page: %s\n", loginURL)
+	clog.Printf("Fetching page: %s\n", loginURL)
 	if err := dp.Run(ctx,
 		dp.Navigate(loginURL),
 		dp.WaitVisible("#loginInput", dp.ByID),
@@ -57,7 +55,7 @@ func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (to
 		dp.Nodes(".pin > img", &imgNodes, dp.ByQueryAll),
 		dp.ActionFunc(func(ctx context.Context) error {
 			var err error
-			log.Println("Generating pin clicks")
+			clog.Println("Generating pin clicks")
 			clickTasks, err = bank.generatePinClicks(ctx, accessPin, imgNodes)
 			if err != nil {
 				return err
@@ -65,22 +63,22 @@ func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (to
 			return nil
 		}),
 	); err != nil {
-		log.Fatalf("Chrome actions failed: %v", err)
+		return "", fmt.Errorf("Chrome actions failed: %v", err)
 	}
 
 	// clickTasks needs to be handled in separate Run() clause, why?
 	if err := dp.Run(ctx,
 		clickTasks,
 		dp.ActionFunc(func(ctx context.Context) error {
-			log.Println("Performing login")
+			clog.Println("Performing login")
 			return nil
 		}),
 		dp.Click("#login-btn", dp.ByID),
 	); err != nil {
-		log.Fatalf("Chrome actions failed: %v", err)
+		return "", fmt.Errorf("Chrome actions failed: %v", err)
 	}
 
-	log.Printf("Wait for token response\n")
+	clog.Printf("Wait for token response\n")
 	ev := <-tokenResponseChan
 	if err := dp.Run(ctx,
 		dp.ActionFunc(func(ctx context.Context) error {
@@ -97,7 +95,7 @@ func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (to
 			return nil
 		}),
 	); err != nil {
-		log.Fatalf("Chrome actions failed: %v", err)
+		return "", fmt.Errorf("Chrome actions failed: %v", err)
 	}
 
 	return
