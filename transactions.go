@@ -11,7 +11,7 @@ import (
 const timeLayout = "2006-01-02T15:04:05-0700"
 const exportTransactionsURL = "https://www.ing.com.au/api/ExportTransactions/Service/ExportTransactionsService.svc/json/ExportTransactions/ExportTransactions"
 
-type TransactionRequest struct {
+type transactionRequest struct {
 	AuthToken       string `qs:"X-AuthToken"`
 	AccountNumber   string
 	Format          string
@@ -21,7 +21,7 @@ type TransactionRequest struct {
 }
 
 func (bank *Bank) FetchLast30Days(accountNumber, authToken string) (csv []byte, err error) {
-	data := TransactionRequest{
+	data := transactionRequest{
 		AuthToken:       authToken,
 		AccountNumber:   accountNumber,
 		Format:          "csv",

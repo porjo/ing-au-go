@@ -7,16 +7,19 @@ A screenscraping interface to ING Australia Bank written in Go. It will drive a 
 ## Usage
 
 ```Go
-	bank := ingaugo.NewBank(websocketURL)
+bank := ingaugo.NewBankWithWS(websocketURL)
 
-	token, err := bank.Login(clientNumber, accessPin)
-	if err != nil {
-		log.Fatal(err)
-	}
+ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+defer cancel()
 
-	fmt.Printf("token: %s\n", token)
+token, err := bank.Login(ctx, *clientNumber, *accessPin)
+if err != nil {
+	log.Fatal(err)
+}
+
+log.Printf("token: %s\n", token)
 ```
-The `websocketURL` parameter is optional. It refers to an already running instance of Chrome browser such as [headless-shell](https://hub.docker.com/r/chromedp/headless-shell/). If the URL is empty, the package will attempt to launch Chrome browser locally by calling `google-chrome` executable.
+The `websocketURL` refers to an already running instance of Chrome browser such as [headless-shell](https://hub.docker.com/r/chromedp/headless-shell/). Alternatively, use `NewBank()` and the package will attempt to launch Chrome browser locally by calling `google-chrome` executable.
 
 
 ## Credit
