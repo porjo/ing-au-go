@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	wsURL := flag.String("ws-url", "ws://localhost:9222", "WebSsocket URL")
+	//	wsURL := flag.String("ws-url", "ws://localhost:9222", "WebSsocket URL")
 	clientNumber := flag.String("clientNumber", "", "Client number")
 	accessPin := flag.String("accessPin", "", "Access pin")
 	accountNumber := flag.String("accountNumber", "", "Account number")
@@ -32,7 +32,8 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	bank := ingaugo.NewBankWithWS(*wsURL)
+	//bank := ingaugo.NewBankWithWS(*wsURL)
+	bank := ingaugo.NewBank()
 
 	token, err := bank.Login(ctx, *clientNumber, *accessPin)
 	if err != nil {

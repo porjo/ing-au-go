@@ -17,8 +17,6 @@ type tokenResponse struct {
 	Token string
 }
 
-const loginURL string = "https://www.ing.com.au/securebanking/"
-
 // NewBank is used to initialize and return a Bank that works by launching a
 // a local browser instance. It depends on 'google-chrome' executable being in $PATH
 func NewBank() Bank {

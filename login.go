@@ -16,6 +16,8 @@ import (
 	"github.com/vitali-fedulov/images3"
 )
 
+const loginURL string = "https://www.ing.com.au/securebanking/"
+
 // Login takes a context, ING client number and access pin and returns an authentication token
 func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (token string, err error) {
 	if clientNumber == "" {
