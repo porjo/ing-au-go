@@ -16,6 +16,7 @@ func main() {
 	clientNumber := flag.String("clientNumber", "", "Client number")
 	accessPin := flag.String("accessPin", "", "Access pin")
 	accountNumber := flag.String("accountNumber", "", "Account number")
+	days := flag.Int("days", 30, "Number of days of transactions")
 	flag.Parse()
 	if *clientNumber == "" {
 		fmt.Println("clientNumber is required")
@@ -40,15 +41,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Printf("token: %s\n", token)
-
 	if *accountNumber != "" {
 		log.Printf("fetching transactions\n")
-		trans, err := bank.GetTransactionsDays(30, *accountNumber, token)
+		trans, err := bank.GetTransactionsDays(*days, *accountNumber, token)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		log.Printf("transactions\n%s\n", trans)
+		log.Printf("%s\n", trans)
 	}
 }
