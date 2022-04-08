@@ -24,7 +24,7 @@ func NewBank() Bank {
 }
 
 // NewBankWithWS initalises and returns a Bank that will attempt to
-// connect to a browser via websocket URL
+// connect to a browser via websocket URL of the form ws://<hostname>:<port>
 func NewBankWithWS(websocketURL string) Bank {
 	return Bank{wsURL: websocketURL}
 }

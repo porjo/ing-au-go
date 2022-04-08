@@ -19,14 +19,20 @@ func main() {
 	days := flag.Int("days", 30, "Number of days of transactions")
 	flag.Parse()
 	if *clientNumber == "" {
-		fmt.Println("clientNumber is required")
+		fmt.Printf("-clientNumber is required\n\n")
+		fmt.Println("Flags:")
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
 	if *accessPin == "" {
-		fmt.Println("accessPin is required")
-		flag.PrintDefaults()
-		os.Exit(1)
+		// check environmenta
+		*accessPin = os.Getenv("ING_ACCESS_PIN")
+		if *accessPin == "" {
+			fmt.Printf("-accessPin parameter or ING_ACCESS_PIN environment variable is required\n\n")
+			fmt.Println("Flags:")
+			flag.PrintDefaults()
+			os.Exit(1)
+		}
 	}
 
 	// create a timeout as a safety net to prevent any infinite wait loops

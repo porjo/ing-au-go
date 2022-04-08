@@ -4,11 +4,13 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
 const timeLayout = "2006-01-02T15:04:05-0700"
 const exportTransactionsURL = "https://www.ing.com.au/api/ExportTransactions/Service/ExportTransactionsService.svc/json/ExportTransactions/ExportTransactions"
+const userAgent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36"
 
 type transactionRequest struct {
 	AuthToken       string `qs:"X-AuthToken"`
@@ -30,8 +32,15 @@ func (bank *Bank) GetTransactionsDays(days int, accountNumber, authToken string)
 	data.Set("FilterEndDate", time.Now().AddDate(0, 0, 1).Format(timeLayout))
 	data.Set("IsSpecific", "false")
 
-	var c http.Client
-	resp, err := c.PostForm(exportTransactionsURL, data)
+	c := &http.Client{}
+
+	req, err := http.NewRequest("POST", exportTransactionsURL, strings.NewReader(data.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", userAgent)
+	resp, err := c.Do(req)
 	if err != nil {
 		return nil, err
 	}
