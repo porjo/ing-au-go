@@ -1,6 +1,7 @@
 package ingaugo
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -45,6 +46,9 @@ func (bank *Bank) GetTransactionsDays(days int, accountNumber, authToken string)
 	resp, err := c.Do(req)
 	if err != nil {
 		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("error fetching transactions. Status code: %d", resp.StatusCode)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)

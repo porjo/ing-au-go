@@ -17,6 +17,7 @@ func main() {
 	accessPin := flag.String("accessPin", "", "Access pin")
 	accountNumber := flag.String("accountNumber", "", "Account number")
 	days := flag.Int("days", 30, "Number of days of transactions")
+	outCSVFile := flag.String("output", "", "File to write CSV data to. If empty, output to console.")
 	flag.Parse()
 	if *clientNumber == "" {
 		fmt.Printf("-clientNumber is required\n\n")
@@ -54,6 +55,12 @@ func main() {
 			log.Fatal(err)
 		}
 
-		log.Printf("%s\n", trans)
+		if *outCSVFile != "" {
+			if err := os.WriteFile(*outCSVFile, trans, 0664); err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			log.Printf("%s\n", trans)
+		}
 	}
 }
