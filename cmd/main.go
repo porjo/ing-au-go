@@ -97,7 +97,7 @@ func GetTransactions(days int, accountNumber, token, outputDir string) error {
 		file = outputDir + "/" + file
 	}
 	log.Printf("Writing CSV file %s\n", file)
-	if err := os.WriteFile(file, trans, 0664); err != nil {
+	if err := os.WriteFile(file, trans, 0666); err != nil {
 		return err
 	}
 
