@@ -34,7 +34,10 @@ func main() {
 	flag.Var(&accounts, "accountNumber", "Account number")
 	days := flag.Int("days", 30, "Number of days of transactions")
 	outputDir := flag.String("outputDir", "", "Directory to write CSV files. Defaults to current directory")
+	debug := flag.Bool("debug", false, "Output verbose logging")
+
 	flag.Parse()
+
 	if *clientNumber == "" {
 		fmt.Printf("-clientNumber is required\n\n")
 		fmt.Println("Flags:")
@@ -71,10 +74,16 @@ func main() {
 		bank = ingaugo.NewBank()
 	}
 
+	bank.SetDebug(*debug)
+
 	fmt.Printf("Fetching auth token...\n")
 	token, err := bank.Login(ctx, *clientNumber, *accessPin)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if *debug {
+		fmt.Printf("token %s\n\n", token)
 	}
 
 	for _, acct := range accounts {

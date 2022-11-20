@@ -30,7 +30,7 @@ func NewBankWithWS(websocketURL string) Bank {
 }
 
 // SetDebug turns on/off verbose logging to stderr
-func SetDebug(state bool) {
+func (b *Bank) SetDebug(state bool) {
 	clog.debugLog = state
 }
 
@@ -40,5 +40,7 @@ func (l customLog) Printf(format string, v ...interface{}) {
 	}
 }
 func (l customLog) Println(msg string) {
-	l.Printf("%v\n", msg)
+	if l.debugLog {
+		l.Printf("%v\n", msg)
+	}
 }
