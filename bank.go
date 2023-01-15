@@ -1,46 +1,28 @@
 // Package ingaugo provides a screenscraping interface to ING Australia Bank
 package ingaugo
 
-import "log"
+import (
+	"os"
+
+	"golang.org/x/exp/slog"
+)
 
 type Bank struct {
-	wsURL string
+	wsURL  string
+	logger *slog.Logger
 }
-
-type customLog struct {
-	debugLog bool
-}
-
-var clog customLog
 
 type tokenResponse struct {
 	Token string
 }
 
-// NewBank is used to initialize and return a Bank that works by launching a
-// a local browser instance. It depends on 'google-chrome' executable being in $PATH
-func NewBank() Bank {
-	return Bank{}
-}
+// NewBank is used to initialize and return a Bank
+// if websocketURL is not empty, the package will connect to browser instances listing at that location
+// otherwise, the package will attempt to launch a local browser instance. It depends on 'google-chrome' executable being in $PATH
+func NewBank(logger *slog.Logger, websocketURL string) (*Bank, error) {
 
-// NewBankWithWS initalises and returns a Bank that will attempt to
-// connect to a browser via websocket URL of the form ws://<hostname>:<port>
-func NewBankWithWS(websocketURL string) Bank {
-	return Bank{wsURL: websocketURL}
-}
-
-// SetDebug turns on/off verbose logging to stderr
-func (b *Bank) SetDebug(state bool) {
-	clog.debugLog = state
-}
-
-func (l customLog) Printf(format string, v ...interface{}) {
-	if l.debugLog {
-		log.Printf(format, v)
+	if logger == nil {
+		logger = slog.New(slog.NewTextHandler(os.Stdout))
 	}
-}
-func (l customLog) Println(msg string) {
-	if l.debugLog {
-		l.Printf("%v\n", msg)
-	}
+	return &Bank{logger: logger, wsURL: websocketURL}, nil
 }

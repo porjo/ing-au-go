@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/porjo/ingaugo"
+	"golang.org/x/exp/slog"
 )
 
 type arrayFlags []string
@@ -22,7 +23,8 @@ func (i *arrayFlags) Set(value string) error {
 	return nil
 }
 
-var bank ingaugo.Bank
+var bank *ingaugo.Bank
+var logger *slog.Logger
 
 func main() {
 
@@ -68,22 +70,28 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	if *wsURL != "" {
-		bank = ingaugo.NewBankWithWS(*wsURL)
+	logOpts := slog.HandlerOptions{}
+	if *debug {
+		logOpts.Level = slog.LevelDebug
 	} else {
-		bank = ingaugo.NewBank()
+		logOpts.Level = slog.LevelInfo
+	}
+	logger = slog.New(logOpts.NewTextHandler(os.Stdout))
+
+	var err error
+	bank, err = ingaugo.NewBank(logger, *wsURL)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	bank.SetDebug(*debug)
-
-	fmt.Printf("Fetching auth token...\n")
+	logger.Info("Fetching auth token...")
 	token, err := bank.Login(ctx, *clientNumber, *accessPin)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	if *debug {
-		fmt.Printf("token %s\n\n", token)
+		logger.Debug("token returned", "token", token)
 	}
 
 	for _, acct := range accounts {
@@ -95,7 +103,7 @@ func main() {
 }
 
 func GetTransactions(days int, accountNumber, token, outputDir string) error {
-	log.Printf("Fetching transactions for account %s\n", accountNumber)
+	logger.Info("Fetching transactions for account", "accountNumber", accountNumber)
 	trans, err := bank.GetTransactionsDays(days, accountNumber, token)
 	if err != nil {
 		return err
@@ -105,7 +113,7 @@ func GetTransactions(days int, accountNumber, token, outputDir string) error {
 	if outputDir != "" {
 		file = outputDir + "/" + file
 	}
-	log.Printf("Writing CSV file %s\n", file)
+	logger.Info("Writing CSV file", "file", file)
 	if err := os.WriteFile(file, trans, 0666); err != nil {
 		return err
 	}

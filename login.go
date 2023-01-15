@@ -37,20 +37,22 @@ func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (to
 	defer cancel()
 
 	var imgNodes []*cdp.Node
+	var clickTasks dp.Tasks
 
 	tokenResponseChan := make(chan *network.EventResponseReceived)
-	clickTasks := make(dp.Tasks, 0)
+	defer close(tokenResponseChan)
 
 	dp.ListenTarget(ctx, func(ev interface{}) {
 		switch ev := ev.(type) {
 		case *network.EventResponseReceived:
+			bank.logger.Debug("network event received", "event.Response.URL", ev.Response.URL)
 			if ev.Response.URL == tokenURL {
 				tokenResponseChan <- ev
 			}
 		}
 	})
 
-	clog.Printf("Fetching page: %s\n", loginURL)
+	bank.logger.Info("Fetching page", "url", loginURL)
 	if err := dp.Run(ctx,
 		dp.Navigate(loginURL),
 		dp.WaitVisible("#loginInput", dp.ByID),
@@ -58,7 +60,7 @@ func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (to
 		dp.Nodes(".pin > img", &imgNodes, dp.ByQueryAll),
 		dp.ActionFunc(func(ctx context.Context) error {
 			var err error
-			clog.Println("Generating pin clicks")
+			bank.logger.Info("Generating pin clicks")
 			clickTasks, err = bank.generatePinClicks(ctx, accessPin, imgNodes)
 			if err != nil {
 				return err
@@ -66,23 +68,30 @@ func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (to
 			return nil
 		}),
 	); err != nil {
-		return "", fmt.Errorf("Chrome actions failed: %v", err)
+		return "", fmt.Errorf("Chrome actions failed: %w", err)
 	}
 
 	// clickTasks needs to be handled in separate Run() clause, why?
 	if err := dp.Run(ctx,
 		clickTasks,
 		dp.ActionFunc(func(ctx context.Context) error {
-			clog.Println("Performing login")
+			bank.logger.Info("Performing login")
 			return nil
 		}),
 		dp.Click("#login-btn", dp.ByID),
 	); err != nil {
-		return "", fmt.Errorf("Chrome actions failed: %v", err)
+		return "", fmt.Errorf("Chrome actions failed: %w", err)
 	}
 
-	clog.Printf("Wait for token response\n")
-	ev := <-tokenResponseChan
+	bank.logger.Info("Wait for token response")
+
+	var ev *network.EventResponseReceived
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case ev = <-tokenResponseChan:
+		break
+	}
 	if err := dp.Run(ctx,
 		dp.ActionFunc(func(ctx context.Context) error {
 			body, err := network.GetResponseBody(ev.RequestID).Do(ctx)
@@ -98,7 +107,7 @@ func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (to
 			return nil
 		}),
 	); err != nil {
-		return "", fmt.Errorf("Chrome actions failed: %v", err)
+		return "", fmt.Errorf("Chrome actions failed: %w", err)
 	}
 
 	return

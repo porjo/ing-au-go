@@ -16,5 +16,6 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/vitali-fedulov/hyper v1.0.2 // indirect
+	golang.org/x/exp v0.0.0-20230113213754-f9f960f08ad4 // indirect
 	golang.org/x/sys v0.4.0 // indirect
 )

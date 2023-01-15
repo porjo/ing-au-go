@@ -37,7 +37,7 @@ func (bank *Bank) GetTransactionsDays(days int, accountNumber, authToken string)
 
 	c := &http.Client{}
 
-	clog.Printf("Fetching page: %s\n", exportTransactionsURL)
+	bank.logger.Info("Fetching page", "url", exportTransactionsURL)
 	req, err := http.NewRequest("POST", exportTransactionsURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func (bank *Bank) GetTransactionsDays(days int, accountNumber, authToken string)
 		return nil, err
 	}
 	if resp.StatusCode != 200 {
-		clog.Printf("Response body: %s\n", string(body))
+		bank.logger.Info("Response body", "body", string(body))
 		return nil, fmt.Errorf("error fetching transactions. Status code: %d", resp.StatusCode)
 	}
 
