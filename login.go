@@ -17,6 +17,7 @@ import (
 )
 
 const loginURL string = "https://www.ing.com.au/securebanking/"
+const tokenURL string = "https://www.ing.com.au/api/token/login/issue"
 
 // Login takes a context, ING client number and access pin and returns an authentication token
 func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (token string, err error) {
@@ -43,7 +44,7 @@ func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (to
 	dp.ListenTarget(ctx, func(ev interface{}) {
 		switch ev := ev.(type) {
 		case *network.EventResponseReceived:
-			if ev.Response.URL == "https://www.ing.com.au/STSServiceB2C/V1/SecurityTokenServiceProxy.svc/issue" {
+			if ev.Response.URL == tokenURL {
 				tokenResponseChan <- ev
 			}
 		}
