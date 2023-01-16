@@ -13,7 +13,7 @@ import (
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/network"
 	dp "github.com/chromedp/chromedp"
-	"github.com/vitali-fedulov/images3"
+	images "github.com/vitali-fedulov/images4"
 )
 
 const loginURL string = "https://www.ing.com.au/securebanking/"
@@ -156,10 +156,10 @@ func generateKeymap(randomKeys []string) (map[int]int, error) {
 		}
 		for keyIdx, keyImg := range keypadImages {
 
-			icon1 := images3.Icon(randImg, "")
-			icon2 := images3.Icon(keyImg, "")
+			icon1 := images.Icon(randImg)
+			icon2 := images.Icon(keyImg)
 
-			m1, m2, m3 := images3.EucMetric(icon1, icon2)
+			m1, m2, m3 := images.EucMetric(icon1, icon2)
 			if m1 < 20.0 && m2 < 20.0 && m3 < 20.0 {
 				keypadMap[keyIdx] = randIdx
 				break
