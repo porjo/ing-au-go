@@ -110,7 +110,7 @@ func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (to
 			if err != nil {
 				return err
 			}
-			bank.logger.Debug("Token response", "tr", fmt.Sprintf("%+v", tr), "raw", string(body))
+			//bank.logger.Debug("Token response", "tr", fmt.Sprintf("%+v", tr), "raw", string(body))
 			if tr.ErrorMessage != "" {
 				return fmt.Errorf("token error '%s'", tr.ErrorMessage)
 			}
@@ -171,18 +171,13 @@ func generateKeymap(randomKeys []string) (map[int]int, error) {
 			icon1 := images.Icon(randImg)
 			icon2 := images.Icon(keyImg)
 
+			// This method is necessary as images.Similar() doesn't match correctly
 			m1, m2, m3 := images.EucMetric(icon1, icon2)
 			if m1 < 20.0 && m2 < 20.0 && m3 < 20.0 {
 				keypadMap[keyIdx] = randIdx
 				break
 
 			}
-			/*
-				if images.Similar(icon1, icon2) {
-					keypadMap[keyIdx] = randIdx
-					break
-				}
-			*/
 		}
 	}
 	return keypadMap, nil
