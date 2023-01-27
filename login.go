@@ -13,11 +13,17 @@ import (
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/network"
 	dp "github.com/chromedp/chromedp"
+
 	images "github.com/vitali-fedulov/images4"
 )
 
 const loginURL string = "https://www.ing.com.au/securebanking/"
 const tokenURL string = "https://www.ing.com.au/api/token/login/issue"
+
+type tokenResponse struct {
+	Token        string
+	ErrorMessage string
+}
 
 // Login takes a context, ING client number and access pin and returns an authentication token
 func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (token string, err error) {
@@ -45,7 +51,8 @@ func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (to
 	dp.ListenTarget(ctx, func(ev interface{}) {
 		switch ev := ev.(type) {
 		case *network.EventResponseReceived:
-			bank.logger.Debug("network event received", "event.Response.URL", ev.Response.URL)
+			//bank.logger.Debug("network event received", "http.status.code", ev.Response.Status, "event.Response.URL", ev.Response.URL, "event.Response.Headers", ev.Response.Headers)
+			bank.logger.Debug("network event received", "http.status.code", ev.Response.Status, "event.Response.URL", ev.Response.URL)
 			if ev.Response.URL == tokenURL {
 				tokenResponseChan <- ev
 			}
@@ -103,6 +110,10 @@ func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (to
 			if err != nil {
 				return err
 			}
+			bank.logger.Debug("Token response", "tr", fmt.Sprintf("%+v", tr), "raw", string(body))
+			if tr.ErrorMessage != "" {
+				return fmt.Errorf("token error '%s'", tr.ErrorMessage)
+			}
 			token = tr.Token
 			return nil
 		}),
@@ -127,6 +138,7 @@ func (bank *Bank) generatePinClicks(ctx context.Context, accessPin string, imgNo
 	if err != nil {
 		return nil, err
 	}
+
 	for _, r := range accessPin {
 		digit, _ := strconv.Atoi(string(r))
 		clickIdx, ok := keymap[digit]
@@ -163,7 +175,14 @@ func generateKeymap(randomKeys []string) (map[int]int, error) {
 			if m1 < 20.0 && m2 < 20.0 && m3 < 20.0 {
 				keypadMap[keyIdx] = randIdx
 				break
+
 			}
+			/*
+				if images.Similar(icon1, icon2) {
+					keypadMap[keyIdx] = randIdx
+					break
+				}
+			*/
 		}
 	}
 	return keypadMap, nil
