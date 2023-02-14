@@ -9,6 +9,7 @@ import (
 	"image"
 	"image/png"
 	"strconv"
+	"time"
 
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/network"
@@ -80,6 +81,9 @@ func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (to
 
 	// clickTasks needs to be handled in separate Run() clause, why?
 	if err := dp.Run(ctx,
+		// FIXME need to wait a bit for buttons to be in a ready state, otherwise we click on the wrong buttons!
+		// Need to find a better way
+		dp.Sleep(time.Second),
 		clickTasks,
 		dp.ActionFunc(func(ctx context.Context) error {
 			bank.logger.Info("Performing login")
