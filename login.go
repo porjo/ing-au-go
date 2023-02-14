@@ -9,10 +9,13 @@ import (
 	"image"
 	"image/png"
 	"strconv"
-	"time"
+	"sync"
 
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/network"
+	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/cdproto/runtime"
+	"github.com/chromedp/chromedp"
 	dp "github.com/chromedp/chromedp"
 
 	images "github.com/vitali-fedulov/images4"
@@ -40,6 +43,7 @@ func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (to
 		ctx, cancel = dp.NewRemoteAllocator(ctx, bank.wsURL)
 		defer cancel()
 	}
+	//ctx, cancel = dp.NewContext(ctx, chromedp.WithDebugf(log.Printf))
 	ctx, cancel = dp.NewContext(ctx)
 	defer cancel()
 
@@ -47,13 +51,17 @@ func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (to
 	var clickTasks dp.Tasks
 
 	tokenResponseChan := make(chan *network.EventResponseReceived)
+	keypadLoadingEndChan := make(chan struct{})
+	keypadLoadingEndCount := 0
+	keypadLoadingEndMutex := sync.Mutex{}
+
 	defer close(tokenResponseChan)
 
 	dp.ListenTarget(ctx, func(ev interface{}) {
 		switch ev := ev.(type) {
 		case *network.EventResponseReceived:
 			//bank.logger.Debug("network event received", "http.status.code", ev.Response.Status, "event.Response.URL", ev.Response.URL, "event.Response.Headers", ev.Response.Headers)
-			bank.logger.Debug("network event received", "http.status.code", ev.Response.Status, "event.Response.URL", ev.Response.URL)
+			//bank.logger.Debug("network event received", "http.status.code", ev.Response.Status, "event.Response.URL", ev.Response.URL)
 			if ev.Response.URL == tokenURL {
 				tokenResponseChan <- ev
 			}
@@ -62,10 +70,33 @@ func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (to
 
 	bank.logger.Info("Fetching page", "url", loginURL)
 	if err := dp.Run(ctx,
+		ExposeFunc("customKeypadLoadingEnd", func(payload string) {
+			bank.logger.Debug("customKeypadLoadingEnd", "payload", payload)
+			keypadLoadingEndMutex.Lock()
+			keypadLoadingEndCount++
+			if keypadLoadingEndCount > 1 {
+				close(keypadLoadingEndChan)
+			}
+			keypadLoadingEndMutex.Unlock()
+		}),
+		dp.ActionFunc(func(ctx context.Context) error {
+			_, err := page.AddScriptToEvaluateOnNewDocument("document.addEventListener('ing-keypad-loading-end', (e) => { customKeypadLoadingEnd(e.type + ' ' + e.timeStamp.toString());})").
+				Do(ctx)
+			return err
+		}),
 		dp.Navigate(loginURL),
 		dp.WaitVisible("#loginInput", dp.ByID),
 		dp.SendKeys("#cifField", clientNumber, dp.ByID),
-		dp.Nodes(".pin > img", &imgNodes, dp.ByQueryAll),
+		dp.Nodes(".pin > img", &imgNodes, dp.ByQueryAll, dp.NodeVisible),
+	); err != nil {
+		return "", fmt.Errorf("Chrome actions failed: %w", err)
+	}
+
+	bank.logger.Debug("waiting for keypad...")
+	<-keypadLoadingEndChan
+	bank.logger.Debug("keypad ready")
+
+	if err := dp.Run(ctx,
 		dp.ActionFunc(func(ctx context.Context) error {
 			var err error
 			bank.logger.Info("Generating pin clicks")
@@ -81,9 +112,6 @@ func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (to
 
 	// clickTasks needs to be handled in separate Run() clause, why?
 	if err := dp.Run(ctx,
-		// FIXME need to wait a bit for buttons to be in a ready state, otherwise we click on the wrong buttons!
-		// Need to find a better way
-		dp.Sleep(time.Second),
 		clickTasks,
 		dp.ActionFunc(func(ctx context.Context) error {
 			bank.logger.Info("Performing login")
@@ -129,6 +157,9 @@ func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (to
 }
 
 func (bank *Bank) generatePinClicks(ctx context.Context, accessPin string, imgNodes []*cdp.Node) (dp.Tasks, error) {
+	if len(imgNodes) == 0 {
+		return nil, fmt.Errorf("generatePinclicks, imgNodes is empty")
+	}
 	clickTasks := make(dp.Tasks, 0)
 	randomKeys := make([]string, 0)
 	for _, node := range imgNodes {
@@ -137,6 +168,9 @@ func (bank *Bank) generatePinClicks(ctx context.Context, accessPin string, imgNo
 			continue
 		}
 		randomKeys = append(randomKeys, src[22:])
+	}
+	if len(randomKeys) == 0 {
+		return nil, fmt.Errorf("generatePinclicks, randomKeys is empty")
 	}
 	keymap, err := generateKeymap(randomKeys)
 	if err != nil {
@@ -149,6 +183,9 @@ func (bank *Bank) generatePinClicks(ctx context.Context, accessPin string, imgNo
 		if ok {
 			clickTasks = append(clickTasks, dp.Click(".uia-pin-"+strconv.Itoa(clickIdx), dp.ByQuery))
 		}
+	}
+	if len(clickTasks) != len(accessPin) {
+		return nil, fmt.Errorf("generatePinclicks, clicktasks != pin length, %d != %d", len(clickTasks), len(accessPin))
 	}
 	return clickTasks, nil
 }
@@ -216,4 +253,18 @@ func getKeypadImages() ([]image.Image, error) {
 		images = append(images, i)
 	}
 	return images, nil
+}
+
+func ExposeFunc(name string, f func(string)) chromedp.Action {
+	return chromedp.Tasks{
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			chromedp.ListenTarget(ctx, func(ev interface{}) {
+				if ev, ok := ev.(*runtime.EventBindingCalled); ok && ev.Name == name {
+					f(ev.Payload)
+				}
+			})
+			return nil
+		}),
+		runtime.AddBinding(name),
+	}
 }
