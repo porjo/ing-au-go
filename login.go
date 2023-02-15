@@ -15,7 +15,6 @@ import (
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/cdproto/runtime"
-	"github.com/chromedp/chromedp"
 	dp "github.com/chromedp/chromedp"
 
 	images "github.com/vitali-fedulov/images4"
@@ -72,6 +71,8 @@ func (bank *Bank) Login(ctx context.Context, clientNumber, accessPin string) (to
 	if err := dp.Run(ctx,
 		ExposeFunc("customKeypadLoadingEnd", func(payload string) {
 			bank.logger.Debug("customKeypadLoadingEnd", "payload", payload)
+			// for some reason the keypad loads a couple of times (part of the randomization routine?)
+			// so we need to wait for the last load before proceeding
 			keypadLoadingEndMutex.Lock()
 			keypadLoadingEndCount++
 			if keypadLoadingEndCount > 1 {
@@ -255,10 +256,10 @@ func getKeypadImages() ([]image.Image, error) {
 	return images, nil
 }
 
-func ExposeFunc(name string, f func(string)) chromedp.Action {
-	return chromedp.Tasks{
-		chromedp.ActionFunc(func(ctx context.Context) error {
-			chromedp.ListenTarget(ctx, func(ev interface{}) {
+func ExposeFunc(name string, f func(string)) dp.Action {
+	return dp.Tasks{
+		dp.ActionFunc(func(ctx context.Context) error {
+			dp.ListenTarget(ctx, func(ev interface{}) {
 				if ev, ok := ev.(*runtime.EventBindingCalled); ok && ev.Name == name {
 					f(ev.Payload)
 				}
