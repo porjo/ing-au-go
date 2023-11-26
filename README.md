@@ -24,6 +24,33 @@ log.Printf("token: %s\n", token)
 ```
 `wsURL` refers to an already running instance of Chrome browser such as [headless-shell](https://hub.docker.com/r/chromedp/headless-shell/). If `wsURL` is nil then the package will attempt to launch Chrome browser locally by calling `google-chrome` executable.
 
+### Docker image
+
+A docker image is available which provides a cli:
+
+```
+$ docker pull ghcr.io/porjo/ingaugo:latest
+
+$ docker run --rm ingaugo
+-clientNumber is required
+
+Flags:
+  -accessPin string
+    	Access pin
+  -accountNumber value
+    	Account number
+  -clientNumber string
+    	Client number
+  -days int
+    	Number of days of transactions (default 30)
+  -debug
+    	Output verbose logging
+  -outputDir string
+    	Directory to write CSV files. Defaults to current directory
+  -ws-url string
+    	WebSsocket URL e.g. ws://localhost:9222
+``` 
+
 
 ## Credit
 
