@@ -119,11 +119,11 @@ func GetTransactions(days int, format string, accountNumber, token, outputDir st
 		return err
 	}
 
-	file := accountNumber + ".csv"
+	file := accountNumber + "." + format
 	if outputDir != "" {
 		file = outputDir + "/" + file
 	}
-	logger.Info("Writing CSV file", "file", file)
+	logger.Info("Writing transaction file", "file", file)
 	if err := os.WriteFile(file, trans, 0666); err != nil {
 		return err
 	}
