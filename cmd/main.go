@@ -35,6 +35,7 @@ func main() {
 	accessPin := flag.String("accessPin", "", "Access pin")
 	flag.Var(&accounts, "accountNumber", "Account number")
 	days := flag.Int("days", 30, "Number of days of transactions")
+	format := flag.String("format", "csv", "transaction output format (csv,ofx,qif)")
 	outputDir := flag.String("outputDir", "", "Directory to write CSV files. Defaults to current directory")
 	debug := flag.Bool("debug", false, "Output verbose logging")
 
@@ -95,16 +96,25 @@ func main() {
 	}
 
 	for _, acct := range accounts {
-		err := GetTransactions(*days, acct, token, *outputDir)
+		err := GetTransactions(*days, *format, acct, token, *outputDir)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 }
 
-func GetTransactions(days int, accountNumber, token, outputDir string) error {
+func GetTransactions(days int, format string, accountNumber, token, outputDir string) error {
 	logger.Info("Fetching transactions for account", "accountNumber", accountNumber)
-	trans, err := bank.GetTransactionsDays(days, accountNumber, token)
+	var f ingaugo.Format
+	switch format {
+	case "ofx":
+		f = ingaugo.OFX
+	case "qif":
+		f = ingaugo.QIF
+	default:
+		f = ingaugo.CSV
+	}
+	trans, err := bank.GetTransactionsDays(days, f, accountNumber, token)
 	if err != nil {
 		return err
 	}
