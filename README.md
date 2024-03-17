@@ -50,6 +50,7 @@ Flags:
 ```
 
 ### Example usage
+```
 docker run --rm -v /data/ing:/data:Z ingaugo -clientNumber 12341234 -accountNumber 0909090909 -accessPin 1234 -days 60 -outputDir /data
 ```
 
