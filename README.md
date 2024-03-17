@@ -26,7 +26,7 @@ log.Printf("token: %s\n", token)
 
 ## CLI
 
-A docker image is available which provides a cli: `docker pull ghcr.io/porjo/ingaugo:latest`
+A docker image is available which provides a cli for downloading transactions: `docker pull ghcr.io/porjo/ingaugo:latest`
 
 ### Command line flags
 ```
@@ -51,7 +51,12 @@ Flags:
 
 ### Example usage
 ```
-docker run --rm -v /data/ing:/data:Z ingaugo -clientNumber 12341234 -accountNumber 0909090909 -accessPin 1234 -days 60 -outputDir /data
+docker run --rm -v /data/ing:/data:Z ingaugo \
+  -clientNumber 12341234 \ 
+  -accountNumber 0909090909 \
+  -accessPin 1234 \
+  -days 60 \
+  -outputDir /data
 ```
 
 ## Credit
