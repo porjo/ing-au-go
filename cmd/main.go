@@ -107,11 +107,14 @@ func GetTransactions(days int, format string, accountNumber, token, outputDir st
 	logger.Info("Fetching transactions for account", "accountNumber", accountNumber)
 	var f ingaugo.Format
 	switch format {
-	case "ofx":
+	case ingaugo.OFX:
 		f = ingaugo.OFX
-	case "qif":
+	case ingaugo.QIF:
 		f = ingaugo.QIF
+	case ingaugo.CSV:
+		f = ingaugo.CSV
 	default:
+		logger.Warn(fmt.Sprintf("Unknown format %q supplied, defaulting to %q", format, ingaugo.CSV))
 		f = ingaugo.CSV
 	}
 	trans, err := bank.GetTransactionsDays(days, f, accountNumber, token)

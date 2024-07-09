@@ -21,7 +21,7 @@ const (
 	QIF Format = "qif"
 )
 
-type Format string
+type Format = string
 
 /*
 type transactionRequest struct {
