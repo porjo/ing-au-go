@@ -18,7 +18,7 @@ type Bank struct {
 func NewBank(logger *slog.Logger, websocketURL string) (*Bank, error) {
 
 	if logger == nil {
-		logger = slog.New(slog.NewTextHandler(os.Stdout))
+		logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
 	}
 	return &Bank{logger: logger, wsURL: websocketURL}, nil
 }

@@ -77,7 +77,7 @@ func main() {
 	} else {
 		logOpts.Level = slog.LevelInfo
 	}
-	logger = slog.New(logOpts.NewTextHandler(os.Stdout))
+	logger = slog.New(slog.NewTextHandler(os.Stdout, &logOpts))
 
 	var err error
 	bank, err = ingaugo.NewBank(logger, *wsURL)
